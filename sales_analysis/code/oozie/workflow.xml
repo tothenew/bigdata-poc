@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow-app xmlns="uri:oozie:workflow:0.2" name="cs-wf-fork-join">
+    <start to="sqoop-node"/>
+ 
+    <!-- <fork name="fork-node">
+        <path start="sqoop-node" />
+       <path start="pig-node" />
+    </fork>
+ -->
+    <action name="sqoop-node">
+        <sqoop xmlns="uri:oozie:sqoop-action:0.2">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+                <delete path="${nameNode}/${examplesRootDir}/input-data/user"/>
+            </prepare>
+ 
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>${queueName}</value>
+                </property>
+            </configuration>
+            <command>import-all-tables --connect jdbc:mysql://localhost/sales --username root --warehouse-dir ${examplesRootDir}/input-data/user/ -m 1</command>
+         </sqoop>
+        <ok to="pig-node"/>
+        <error to="fail"/>
+    </action>
+ 
+    <action name="pig-node">
+        <pig>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+                <delete path="${nameNode}${examplesRootDir}/intermediate"/>
+            </prepare>
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>${queueName}</value>
+                </property>
+                <property>
+                    <name>mapred.compress.map.output</name>
+                    <value>true</value>
+                </property>
+            </configuration>
+            <script>year_sales.pig</script>
+            <param>PRODUCT_FILE=${examplesRootDir}/input-data/user/product</param>
+	    <param>SALE_FILE=${examplesRootDir}/input-data/user/sale</param>
+            <param>OUTPUT=${examplesRootDir}/intermediate</param>
+        </pig>
+        <ok to="sqoop-export-node"/>
+        <error to="fail"/>
+    </action>
+
+<action name="sqoop-export-node">
+        <sqoop xmlns="uri:oozie:sqoop-action:0.2">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>${queueName}</value>
+                </property>
+            </configuration>
+            <command>export --connect jdbc:mysql://localhost/sales --username root --table sales_output --export-dir ${examplesRootDir}/intermediate</command>
+         </sqoop>
+
+        <ok to="end"/>
+        <error to="fail"/>
+    </action>
+    <kill name="fail">
+        <message>Sqoop failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+    </kill>
+    <end name="end"/>
+</workflow-app>
