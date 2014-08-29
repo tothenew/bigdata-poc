@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow-app xmlns="uri:oozie:workflow:0.2" name="cs-wf-fork-join">
+    <start to="sqoop-node"/>
+ 
+<!--
+    <fork name="fork-node">
+        <path start="sqoop-node" />
+        <path start="pig-node" />
+    </fork>
+ -->
+    <action name="sqoop-node">
+        <sqoop xmlns="uri:oozie:sqoop-action:0.2">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+                <delete path="${nameNode}/${examplesRootDir}/input-data/user"/>
+            </prepare>
+ 
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>${queueName}</value>
+                </property>
+            </configuration>
+            <command>import-all-tables --connect jdbc:mysql://localhost/sales --username root --warehouse-dir ${examplesRootDir}/input-data/user -m 1</command>
+        </sqoop>
+        <ok to="hive-node"/>
+        <error to="fail"/>
+    </action>
+ 
+<!--
+    <action name="pig-node">
+        <pig>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+                <delete path="${nameNode}${examplesRootDir}/intermediate"/>
+            </prepare>
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>${queueName}</value>
+                </property>
+                <property>
+                    <name>mapred.compress.map.output</name>
+                    <value>true</value>
+                </property>
+            </configuration>
+            <script>filter.pig</script>
+            <param>INPUT=${examplesRootDir}/input-data/clickstream</param>
+            <param>OUTPUT=${examplesRootDir}/intermediate</param>
+        </pig>
+        <ok to="joining"/>
+        <error to="fail"/>
+    </action>
+-->
+ 
+  
+ 
+    <action name="hive-node">
+        <hive xmlns="uri:oozie:hive-action:0.2">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+                <delete path="${nameNode}/${examplesRootDir}/finaloutput"/>
+            </prepare>
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>${queueName}</value>
+                </property>
+            </configuration>
+            <script>script.sql</script>
+            <param>SALE=${examplesRootDir}/input-data/user/sale/part-*</param>
+            <param>INVENTORY=${examplesRootDir}/input-data/user/inventory/part-*</param>
+	    <param>PRODUCT=${examplesRootDir}/input-data/user/product/part-*</param>
+            <param>OUTPUT=${examplesRootDir}/finaloutput</param>
+        </hive>
+        <ok to="end"/>
+        <error to="fail"/>
+    </action>
+ 
+
+    <kill name="fail">
+        <message>Sqoop failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+    </kill>
+    <end name="end"/>
+</workflow-app>
