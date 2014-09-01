@@ -1,6 +1,6 @@
-products =  LOAD '/user/cloudera/sales/product/' using PigStorage('\t') as (product_id:int,version:int,brand_name:chararray,category:chararray,price:int,product_name:chararray,weight:chararray);
+products =  LOAD '/user/${user.name}/sales/product/' using PigStorage('\t') as (product_id:int,version:int,brand_name:chararray,category:chararray,price:int,product_name:chararray,weight:chararray);
 
-sale =  LOAD '/user/cloudera/sales/sale/' using PigStorage('\t') as (sale_id:int,version:int,brand_name:chararray,item_purchased:int,product_id:int,purchase_date:chararray);
+sale =  LOAD '/user/${user.name}/sales/sale/' using PigStorage('\t') as (sale_id:int,version:int,brand_name:chararray,item_purchased:int,product_id:int,purchase_date:chararray);
 
 by_sale_product = join products by product_id, sale by product_id;
 

@@ -7,6 +7,10 @@
        <path start="pig-node" />
     </fork>
  -->
+
+
+
+
     <action name="sqoop-node">
         <sqoop xmlns="uri:oozie:sqoop-action:0.2">
             <job-tracker>${jobTracker}</job-tracker>
@@ -46,13 +50,29 @@
             </configuration>
             <script>year_sales.pig</script>
             <param>PRODUCT_FILE=${examplesRootDir}/input-data/user/product</param>
-	    <param>SALE_FILE=${examplesRootDir}/input-data/user/sale</param>
+        <param>SALE_FILE=${examplesRootDir}/input-data/user/sale</param>
             <param>OUTPUT=${examplesRootDir}/intermediate</param>
         </pig>
-        <ok to="sqoop-export-node"/>
+        <ok to="shell"/>
         <error to="fail"/>
     </action>
 
+  <action name='shell'>
+        <shell xmlns="uri:oozie:shell-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                  <name>mapred.job.queue.name</name>
+                  <value>${queueName}</value>
+                </property>
+            </configuration>
+            <exec>${EXEC}</exec>
+           <file>${EXEC}#${EXEC}</file> <!--Copy the executable to compute node's current working directory -->
+        </shell>
+        <ok to="sqoop-export-node" />
+        <error to="fail" />
+    </action>
 <action name="sqoop-export-node">
         <sqoop xmlns="uri:oozie:sqoop-action:0.2">
             <job-tracker>${jobTracker}</job-tracker>
