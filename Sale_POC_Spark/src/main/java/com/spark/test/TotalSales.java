@@ -120,7 +120,7 @@ public class TotalSales {
                 product.setBrandName(dataArray[2]);
                 product.setItemPurchased(Long.parseLong(dataArray[3]));
                 product.setPurchaseDate(dt.parse(date_s));
-                return new Tuple2<String, Sale>(dataArray[0], product);
+                return new Tuple2<String, Sale>(dataArray[4], product);
             }
         });
         return salesMapKey;
