@@ -27,13 +27,13 @@ public class TotalSales {
         JavaPairRDD<String, Sale> saleJavaPairRDD = fetchSalesData(ctx);
         JavaPairRDD<String, Tuple2<Product, Sale>> joinData = productJavaPairRDD.join(saleJavaPairRDD);
         JavaRDD<ProductSale> productSaleMap = fetchFlatMap(joinData);
-        JavaPairRDD<Object, Iterable<ProductSale>> groupMap = productSaleMap.groupBy(new Function<ProductSale, Object>() {
-            @Override
-            public Object call(ProductSale productSale) throws Exception {
-                c.setTime(productSale.getSale().getPurchaseDate());
-                return c.get(Calendar.YEAR);
-            }
-        });
+            JavaPairRDD<Object, Iterable<ProductSale>> groupMap = productSaleMap.groupBy(new Function<ProductSale, Object>() {
+                @Override
+                public Object call(ProductSale productSale) throws Exception {
+                    c.setTime(productSale.getSale().getPurchaseDate());
+                    return c.get(Calendar.YEAR);
+                }
+            });
 
 
         JavaPairRDD<Object, Long> totalSaleData = groupMap.mapValues(new Function<Iterable<ProductSale>, Long>() {
