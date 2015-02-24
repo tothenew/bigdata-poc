@@ -1,0 +1,276 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet Layers Control Example</title>
+    <meta charset="utf-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
+
+    <style>
+        #map {
+            width: 1000px;
+            height: 500px;
+        }
+        #map1 {
+            width: 1000px;
+            height: 500px;
+        }
+
+        .info {
+            padding: 6px 8px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .info h4 {
+            margin: 0 0 5px;
+            color: #777;
+        }
+
+        .legend {
+            text-align: left;
+            line-height: 18px;
+            color: #555;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="map1"></div>
+<script src="http://leafletjs.com/dist/leaflet.js"></script>
+
+<script type="text/javascript" src="us-states.js"></script>
+<script type="text/javascript">
+
+var tinyIcon = L.Icon.extend({
+    options: {
+        shadowUrl: '../public/assets/marker-shadow.png',
+        iconSize: [25, 39],
+        iconAnchor: [12, 36],
+        shadowSize: [41, 41],
+        shadowAnchor: [12, 38],
+        popupAnchor: [0, -30]
+    }
+});
+var blackIcon = new tinyIcon({ iconUrl: '../public/assets/black.png' });
+var blueIcon = new tinyIcon({ iconUrl: '../public/assets/blue.png' });
+var brownIcon = new tinyIcon({ iconUrl: '../public/assets/brown.png' });
+var burgandyIcon = new tinyIcon({ iconUrl: '../public/assets/burgandy.png' });
+var dark_redIcon = new tinyIcon({ iconUrl: '../public/assets/dark-red.png' });
+var greenIcon = new tinyIcon({ iconUrl: '../public/assets/green.png' });
+var light_blueIcon = new tinyIcon({ iconUrl: '../public/assets/light-blue.png' });
+var light_brownIcon = new tinyIcon({ iconUrl: '../public/assets/light-brown.png' });
+var light_greenIcon = new tinyIcon({ iconUrl: '../public/assets/light-green.png' });
+var orangeIcon = new tinyIcon({ iconUrl: '../public/assets/orange.png' });
+var pinkIcon = new tinyIcon({ iconUrl: '../public/assets/pink.png' });
+var redIcon = new tinyIcon({ iconUrl: '../public/assets/red.png' });
+var yellowIcon = new tinyIcon({ iconUrl: '../public/assets/yellow.png' });
+var yellow_brownIcon = new tinyIcon({ iconUrl: '../public/assets/yellow-brown.png' });
+
+var iconArray = new Object();
+
+iconArray['New Year Dhamaka'] = blackIcon;
+iconArray['X-mas Bonanga'] = blueIcon;
+iconArray['Republic Day Sale'] = brownIcon;
+iconArray["Sabse sasta"] = burgandyIcon;
+iconArray['Dhamaka Sale'] = dark_redIcon;
+iconArray["Big Sale"] = greenIcon;
+iconArray["Digital Bonanga"] = yellow_brownIcon;
+iconArray['CWC 2015'] = light_blueIcon;
+iconArray['IPL 8'] = light_brownIcon;
+iconArray['Fashion week'] = light_greenIcon;
+iconArray["Home Appliance"] = orangeIcon;
+iconArray['Bye one get one free'] = pinkIcon;
+iconArray["Refer a FRIEND and EARN "] = redIcon;
+
+
+var map = L.map('map').setView([30.774, -98.125], 4);
+
+L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+            '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+            'Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    id: 'examples.map-20v6611k'
+}).addTo(map);
+
+
+// control that shows state info on hover
+var info = L.control();
+
+info.onAdd = function (map) {
+    this._div = L.DomUtil.create('div', 'info');
+    this.update();
+    return this._div;
+};
+
+info.update = function (props) {
+    this._div.innerHTML = '<h4>US Population Density</h4>' +  (props ?
+            '<b>' + props.name + '</b><br />' + props.density + ' people / mi<sup>2</sup>'
+            : 'Hover over a state');
+};
+
+info.addTo(map);
+
+
+// get color depending on population density value
+function getColor(d) {
+    return d > 1000 ? '#800026' :
+                    d > 500  ? '#BD0026' :
+                    d > 200  ? '#E31A1C' :
+                    d > 100  ? '#FC4E2A' :
+                    d > 50   ? '#FD8D3C' :
+                    d > 20   ? '#FEB24C' :
+                    d > 10   ? '#FED976' :
+            '#FFEDA0';
+}
+
+function style(feature) {
+
+    return {
+        weight: 2,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7,
+        fillColor: getColor(feature.properties.density)
+    };
+}
+
+function highlightFeature(e) {
+    var layer = e.target;
+
+    layer.setStyle({
+        weight: 5,
+        color: '#666',
+        dashArray: '',
+        fillOpacity: 0.7
+    });
+
+    if (!L.Browser.ie && !L.Browser.opera) {
+        layer.bringToFront();
+    }
+
+    info.update(layer.feature.properties);
+}
+
+var geojson;
+
+function resetHighlight(e) {
+    geojson.resetStyle(e.target);
+    info.update();
+}
+
+function zoomToFeature(e) {
+    var feature = e.target;
+    console.log(feature)
+
+
+    map.fitBounds(e.target.getBounds());
+}
+
+function bindOnClickEvent(e){
+
+}
+
+function onEachFeature(feature, layer) {
+
+    if(feature.properties.name=="Idaho"){
+        console.log("hell");
+        var littleton = L.marker([39.61, -105.02]).bindPopup('This is Littleton, CO.'),
+                denver    = L.marker([39.74, -104.99]).bindPopup('This is Denver, CO.'),
+                aurora    = L.marker([39.73, -104.8]).bindPopup('This is Aurora, CO.'),
+                golden    = L.marker([39.77, -105.23]).bindPopup('This is Golden, CO.');
+        map.addLayer(littleton);
+        map.addLayer(golden);
+    }
+    if(feature.properties.compaignData !=undefined){
+
+        (feature.properties.compaignData).forEach(function(data){
+            console.log(data.name)
+            var littleton = L.marker([data.lat,data.lon],{json:data.cities}).bindPopup(data.name);
+
+            littleton.on("click",function (e) {
+                var cities = data.cities;
+
+                console.log(data.cities);
+
+                var group = new L.featureGroup([this]);
+
+                map.fitBounds(group.getBounds());
+
+            });
+            map.addLayer(littleton);
+
+        });
+    };
+    layer.on({
+        mouseover: highlightFeature,
+        mouseout: resetHighlight,
+        click: zoomToFeature
+    });
+}
+
+geojson = L.geoJson(statesData, {
+    style: style,
+    onEachFeature: onEachFeature
+}).addTo(map);
+
+map.attributionControl.addAttribution('Population data &copy; <a href="http://census.gov/">US Census Bureau</a>');
+
+var map1 = L.map('map1')
+
+function createInnerMap(e){
+
+    var map = map1.setView([e.latlng.lat, e.latlng.lng], 4);
+
+    L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+                '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+                'Imagery © <a href="http://mapbox.com">Mapbox</a>',
+        id: 'examples.map-20v6611k'
+    }).addTo(map);
+    var states = [{
+        "type": "Feature",
+        "properties": {"party": "Republican"},
+        "geometry": {
+            "type": "Point",
+            "coordinates": [-104.05, 48.99]
+        }
+    }, {
+        "type": "Feature",
+        "properties": {"party": "Democrat"},
+        "geometry": {
+            "type": "Point",
+            "coordinates":
+                    [-109.05, 41.00]
+        }
+    }];
+
+    L.geoJson(states, {
+        style: function(feature) {
+            switch (feature.properties.party) {
+                case 'Republican': return {color: "#ff0000"};
+                case 'Democrat':   return {color: "#0000ff"};
+            }
+        }
+    }).addTo(map);
+
+}
+</script>
+
+</body>
+</html>

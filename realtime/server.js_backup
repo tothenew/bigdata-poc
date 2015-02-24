@@ -1,0 +1,190 @@
+var http = require('http');
+var Static = require('node-static');
+//var app = http.createServer(handler);
+var port = 8000;
+
+var files = new Static.Server('./public');
+
+var geoip = require('geoip-lite');
+
+
+var express = require('express');
+var app = express();
+var server = http.createServer(app);
+var io = require('socket.io').listen(server);
+
+app.get('/graph/', function(req, res){
+   var compaginId = req.query.compaginId
+    var responseData = [{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":449,"ip":"162.208.49.45"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":454,"ip":"162.216.155.136"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":455,"ip":"162.252.33.53"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":443,"ip":"198.86.88.2"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":448,"ip":"209.170.151.142"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":452,"ip":"69.197.148.18"}}]
+    var jsonData = [];
+    responseData.forEach(function(obj){
+        var geo1 = geoip.lookup(obj.event.ip);
+        jsonData.push({
+            lat:geo1.ll[0],
+            lan:geo1.ll[1],
+            count:obj.event.rows,
+            ip:obj.event.ip
+        });
+    });
+    console.log("In graph")
+    io.sockets.emit('dataEvent', jsonData);
+    res.end()
+});
+
+
+
+var postJsonData = {
+    "queryType": "groupBy",
+    "dataSource": "adtracker",
+    "granularity": "all",
+    "dimensions": ["ip"],
+    "aggregations": [
+        { "type": "count", "name": "rows" }
+
+    ],
+    "intervals": ["1990-10-01T00:00/2020-01-01T00"]
+}
+
+var postJsonDataString = JSON.stringify(postJsonData);
+
+var headers = {
+    'Content-Type': 'application/json',
+    'Content-Length': postJsonDataString.length
+};
+
+
+var options = {
+    host: '54.172.22.64',
+    port: 8080,
+    method: 'POST',
+    path: '/druid/v2/?content-type=application/json',
+    headers: headers
+};
+
+var responseData = [{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":449,"ip":"162.208.49.45"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":454,"ip":"162.216.155.136"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":455,"ip":"162.252.33.53"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":443,"ip":"198.86.88.2"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":448,"ip":"209.170.151.142"}},{"version":"v1","timestamp":"1990-10-01T00:00:00.000Z","event":{"rows":452,"ip":"69.197.148.18"}}]
+
+
+function handler (request, response) {
+	request.on('end', function() {
+		files.serve(request, response);
+	}).resume();
+}
+
+var resultObject = responseData
+var jsonData = [];
+responseData.forEach(function(obj){
+    var geo1 = geoip.lookup(obj.event.ip);
+    jsonData.push({
+        lat:geo1.ll[0],
+        lan:geo1.ll[1],
+        count:obj.event.rows,
+        ip:obj.event.ip
+    });
+});
+io.sockets.emit('dataEvent', jsonData);
+// delete to see more logs from sockets
+io.set('log level', 1);
+var jsonData = [];
+/*var req = http.request(options, function(res) {
+    var responseString = '';
+
+    res.on('data', function(data) {
+        responseString += data;
+    });
+
+    res.on('end', function() {
+        var resultObject = JSON.parse(responseString);
+
+        resultObject.forEach(function(obj){
+            var geo1 = geoip.lookup(obj.event.ip);
+            jsonData.push({
+                lat:geo1.ll[0],
+                lan:geo1.ll[1],
+                count:obj.event.rows,
+                ip:obj.event.ip
+            });
+        });
+        console.log(jsonData);
+
+
+    });
+});
+
+
+req.write(postJsonDataString);
+req.end();
+ */
+io.sockets.on('connection', function (socket) {
+
+    console.log("Connected");
+    io.sockets.emit('dataEvent', jsonData);
+
+	socket.on('giveMeData', function () {
+        console.log("Recriveng data");
+        var resultObject = responseData
+        var jsonData = [];
+        responseData.forEach(function(obj){
+            var geo1 = geoip.lookup(obj.event.ip);
+            jsonData.push({
+                lat:geo1.ll[0],
+                lan:geo1.ll[1],
+                count:obj.event.rows,
+                ip:obj.event.ip
+            });
+        });
+        io.sockets.emit('dataEvent', jsonData);
+         /*var req1 = http.request(options, function(res) {
+            var responseString = '';
+
+            res.on('data', function(data) {
+                responseString += data;
+            });
+
+            res.on('end', function() {
+                var resultObject = JSON.parse(responseString);
+                var jsonData = [];
+                resultObject.forEach(function(obj){
+                    var geo1 = geoip.lookup(obj.event.ip);
+                    jsonData.push({
+                        lat:geo1.ll[0],
+                        lan:geo1.ll[1],
+                        count:obj.event.rows,
+                        ip:obj.event.ip
+                    });
+                });
+                io.sockets.emit('dataEvent', jsonData);
+            });
+        });
+        req1.on('error', function(e) {
+           console.log(e)
+        });
+
+        req1.write(postJsonDataString);
+        req1.end();
+*/
+    });
+
+});
+
+
+/*
+setInterval(function() {
+    console.log("sending ...")
+    console.log("Recriveng data");
+    var resultObject = responseData
+    var jsonData = [];
+    responseData.forEach(function(obj){
+        var geo1 = geoip.lookup(obj.event.ip);
+        jsonData.push({
+            lat:geo1.ll[0],
+            lan:geo1.ll[1],
+            count:obj.event.rows,
+            ip:obj.event.ip
+        });
+    });
+    io.sockets.emit('dataEvent', jsonData);
+}, 5000);
+*/
+
+server.listen(port);
+console.log('Your server goes on localhost:' + port);
