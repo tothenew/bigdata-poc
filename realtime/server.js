@@ -177,7 +177,7 @@ function createQueryForProcessRequest(socketName, locationURL) {
     processRequestDataAndEmitEvent(compaignString, socketName);
     var intervalId = setInterval(function () {
         processRequestDataAndEmitEvent(compaignString, socketName)
-    }, 30000);
+    }, 10000);
     var o = _.findWhere(sockets, {'id': currentSocketId});
 //    ////console.log(intervalId);
     o.interValId = intervalId;
@@ -208,7 +208,9 @@ var processedLocations = 0;
 var compaginImpressionData = [];
 var statesWithImpression = new Array();
 var stateWithTotalImpressionServed = {}
+var cityWithTotalImpressionServed = {}
 var stateWithTotalImpressionBooked = {};
+var stateWithCitiesImpression = {};
 
 
 function convertMetaDataIntoStateImpressionBooked() {
@@ -360,6 +362,7 @@ function processRequestDataAndEmitEvent(queryString1, socketName) {
             compaginImpressionData = {};
             statesWithImpression = new Array();
             stateWithTotalImpressionServed = {};
+            stateWithCitiesImpression = {};
             resultObject.forEach(function (obj) {
                 makeJsonData(obj)
             });
@@ -522,11 +525,67 @@ function createCompJson(obj, cmpImpressionData, geo1) {
     return cmpImpressionData;
 }
 
+
+function mergeComapiginImpressionData(gender, ageGroup, segmentation, cmpJSONObject, count) {
+    if (gender == 'Male') {
+        var maleObject = cmpJSONObject.Gender[0].Male;
+        cmpJSONObject.Gender[0].Male = {
+            "impressionServe": parseInt(maleObject.impressionServe) + count
+        };
+    }
+    if (gender == 'Female') {
+        var femaleObject = cmpJSONObject.Gender[0].Female;
+        cmpJSONObject.Gender[0].Female = {
+            "impressionServe": parseInt(femaleObject.impressionServe) + count
+        };
+    }
+    if (ageGroup == 'grp_10_30') {
+        var grp_10_30Object = cmpJSONObject.Age[0].grp_10_30;
+        cmpJSONObject.Age[0].grp_10_30 = {
+            "impressionServe": parseInt(grp_10_30Object.impressionServe) + count
+        };
+    }
+    if (ageGroup == 'grp_31_50') {
+        var grp_10_50Object = cmpJSONObject.Age[0].grp_31_50;
+        cmpJSONObject.Age[0].grp_31_50 = {
+            "impressionServe": parseInt(grp_10_50Object.impressionServe) + count
+        };
+    }
+    if (ageGroup == 'grp_51_above') {
+        var grp_51_aboveObject = cmpJSONObject.Age[0].grp_51_above;
+        cmpJSONObject.Age[0].grp_51_above = {
+            "impressionServe": parseInt(grp_51_aboveObject.impressionServe) + count
+        };
+    }
+
+    if (segmentation == 'Business') {
+        var BusinessObject = cmpJSONObject.Segmentation[0].Business;
+        cmpJSONObject.Segmentation[0].Business = {
+            "impressionServe": parseInt(BusinessObject.impressionServe) + count
+        };
+    }
+    if (segmentation == 'Politics') {
+        var PoliticsObject = cmpJSONObject.Segmentation[0].Politics;
+        cmpJSONObject.Segmentation[0].Politics = {
+            "impressionServe": parseInt(PoliticsObject.impressionServe) + count
+        };
+    }
+    if (segmentation == 'News') {
+        var NewsObject = cmpJSONObject.Segmentation[0].News;
+        cmpJSONObject.Segmentation[0].News = {
+            "impressionServe": parseInt(NewsObject.impressionServe) + count
+        };
+    }
+    return cmpJSONObject;
+}
 function makeJsonData(obj) {
 
     var geo1 = geoip.lookup(obj.event.ip);
     if (geo1 != undefined) {
         var regionName = geo1.region;
+        var cityValue = geo1.city;
+        var gender = obj.event.gender;
+        var segmentation = obj.event.segment;
         regionName = geoLocationRegionArray[regionName];
         var state = regionName;
         var cmpname = obj.event.campaignname;
@@ -545,6 +604,8 @@ function makeJsonData(obj) {
                 if (stateListData[state] != undefined && stateListData[state] != '') {
                     var stateObject = stateListData[state];
                     var compJSONAray = stateListData[state].compaignData;
+                    var citiesArray = stateListData[state].cities;
+                    stateListData[state].cities = createCityWithStateMapObject(citiesArray, cityValue, obj, geo1, cmpname);
                     var stateImpMap = []
                     compJSONAray.forEach(function (cmpJsonObj, index) {
                         stateImpMap [cmpJsonObj.name] = cmpJsonObj;
@@ -562,16 +623,9 @@ function makeJsonData(obj) {
                     stateCmpImpressionObject = stateCmpImpressionObject[cmpname]
                     var densityCount = stateListData[state].density + count;
                     stateObject.density = densityCount;
-                    var cityJSONObject = {
-                        "coordinates": [lat, lan],
-                        "count": count
-                    };
                     var compaingObjectExist = false;
                     compJSONAray.forEach(function (compainObject, index) {
                         if (compainObject.name != undefined && compainObject.name == cmpname) {
-                            var citiesJsonArray = compainObject.cities
-                            citiesJsonArray.push(cityJSONObject);
-                            compainObject.cities = citiesJsonArray;
                             compainObject.Gender = stateCmpImpressionObject.Gender;
                             compainObject.Segmentation = stateCmpImpressionObject.Segmentation;
                             compainObject.impressionServe = stateCmpImpressionObject.impressionServe;
@@ -591,8 +645,7 @@ function makeJsonData(obj) {
                             "Age": stateCmpImpressionObject.Age,
                             "impressionBooked": compaignAllAsPerState_CompBooked[cmp_state_name] != undefined ? compaignAllAsPerState_CompBooked[cmp_state_name] : 0,
                             "Segmentation": stateCmpImpressionObject.Segmentation,
-                            "impressionServe": stateCmpImpressionObject.impressionServe,
-                            "cities": [cityJSONObject]
+                            "impressionServe": stateCmpImpressionObject.impressionServe
                         };
                         compJSONAray.push(compaiginData);
                     }
@@ -607,6 +660,25 @@ function makeJsonData(obj) {
                         "density": count,
                         "lat": lat,
                         "lon": lan,
+                        "cities": [
+                            {
+                                "name": cityValue,
+                                "lat": lat,
+                                "lon": lan,
+                                "compaignData": [
+                                    {
+                                        "name": cmpname,
+                                        "lat": lat,
+                                        "lon": lan,
+                                        "Gender": comapinImpressionObject.Gender,
+                                        "Age": comapinImpressionObject.Age,
+                                        "Segmentation": comapinImpressionObject.Segmentation,
+                                        "impressionServe": comapinImpressionObject.impressionServe
+                                    }
+
+                                ]
+                            }
+                        ],
                         "compaignData": [
                             {
                                 "name": cmpname,
@@ -616,13 +688,8 @@ function makeJsonData(obj) {
                                 "Age": comapinImpressionObject.Age,
                                 "Segmentation": comapinImpressionObject.Segmentation,
                                 "impressionServe": comapinImpressionObject.impressionServe,
-                                "impressionBooked": compaignAllAsPerState_CompBooked[cmp_state_name] != undefined ? compaignAllAsPerState_CompBooked[cmp_state_name] : 0,
-                                "cities": [
-                                    {
-                                        "coordinates": [lat, lan],
-                                        "count": count
-                                    }
-                                ]
+                                "impressionBooked": compaignAllAsPerState_CompBooked[cmp_state_name] != undefined ? compaignAllAsPerState_CompBooked[cmp_state_name] : 0
+
                             }
 
                         ]
@@ -636,6 +703,79 @@ function makeJsonData(obj) {
     }
 }
 
+
+function createCityWithStateMapObject(citiesArray, cityName, obj, geo1, cmpname) {
+    var lat = geo1.ll[0];
+    var lan = geo1.ll[1];
+    var checkCity = false;
+    citiesArray.forEach(function (cityJsonObject, index1) {
+        if (cityJsonObject.name == cityName) {
+            var compJSONAray = cityJsonObject.compaignData;
+            var stateImpMap = [];
+            compJSONAray.forEach(function (cmpJsonObj, index) {
+                stateImpMap [cmpJsonObj.name] = cmpJsonObj;
+            });
+
+            var stateCmpImpressionObject = createCompJson(obj, stateImpMap, geo1);
+            stateCmpImpressionObject = stateCmpImpressionObject[cmpname]
+
+            var compaingObjectExist = false;
+            compJSONAray.forEach(function (compainObject, index) {
+                if (compainObject.name != undefined && compainObject.name == cmpname) {
+                    compainObject.Gender = stateCmpImpressionObject.Gender;
+                    compainObject.Segmentation = stateCmpImpressionObject.Segmentation;
+                    compainObject.impressionServe = stateCmpImpressionObject.impressionServe;
+                    compainObject.Age = stateCmpImpressionObject.Age;
+                    compJSONAray.splice(index, 1);
+                    compJSONAray.push(compainObject);
+                    compaingObjectExist = true;
+                }
+            })
+            if (!compaingObjectExist) {
+                var compaiginData = {
+                    "name": cmpname,
+                    "lat": lat,
+                    "lon": lan,
+                    "Gender": stateCmpImpressionObject.Gender,
+                    "Age": stateCmpImpressionObject.Age,
+                    "Segmentation": stateCmpImpressionObject.Segmentation,
+                    "impressionServe": stateCmpImpressionObject.impressionServe
+                };
+                compJSONAray.push(compaiginData);
+            }
+            cityJsonObject.compaignData = compJSONAray;
+            citiesArray.splice(index1, 1);
+            citiesArray.push(cityJsonObject);
+            checkCity = true;
+        }
+
+    });
+    if (!checkCity) {
+        var comapinImpressionObject = createCompJson(obj, [], geo1);
+        comapinImpressionObject = comapinImpressionObject[cmpname]
+        var stateJSONObject = {
+            "name": cityName,
+            "lat": lat,
+            "lon": lan,
+            "compaignData": [
+                {
+                    "name": cmpname,
+                    "lat": lat,
+                    "lon": lan,
+                    "Gender": comapinImpressionObject.Gender,
+                    "Age": comapinImpressionObject.Age,
+                    "Segmentation": comapinImpressionObject.Segmentation,
+                    "impressionServe": comapinImpressionObject.impressionServe
+                }
+
+            ]
+
+        };
+
+        citiesArray.push(stateJSONObject)
+    }
+    return citiesArray;
+}
 
 io.sockets.on("connection", function (socket) {
     ////console.log("Socket Id for join server:::" + socket.id);
